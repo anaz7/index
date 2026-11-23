@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no">
+<title>Honda Vario 160 • IoT Remote</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+:root{
+  --bg:#0b0f17;--card:#131a26;--card2:#1a2436;--border:rgba(255,255,255,.08);
+  --txt:#f1f5f9;--mut:#94a3b8;--acc:#38bdf8;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;
+}
+*{box-sizing:border-box;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+html,body{
+  margin:0;padding:18px 18px 84px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:radial-gradient(circle at top,#17253b 0%,var(--bg) 55%);color:var(--txt);
+  touch-action:pan-y;overscroll-behavior:none;min-height:100vh;
+}
+body.no-scroll{overflow:hidden;overscroll-behavior:none}
+input,select{touch-action:manipulation;-webkit-user-select:text;user-select:text}
+.wrap{max-width:540px;margin:0 auto}
+
+.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+.hdr h1{font-size:1.15rem;margin:0;letter-spacing:.2px}
+.badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pill-badge{
+  font-size:.72rem;padding:4px 9px;border-radius:999px;font-weight:600;
+  background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.3);
+}
+.pill-badge.iot{
+  background:rgba(56,189,248,.14);color:#7dd3fc;border:1px solid rgba(56,189,248,.35);
+}
+.pill-badge.off{
+  background:rgba(148,163,184,.14);color:#cbd5e1;border:1px solid rgba(148,163,184,.28);
+}
+.pill-badge.warn{
+  background:rgba(239,68,68,.16);color:#fca5a5;border:1px solid rgba(239,68,68,.35);
+}
+.icon-btn{
+  width:32px;height:32px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card);color:var(--txt);display:inline-flex;align-items:center;
+  justify-content:center;cursor:pointer;transition:.15s;padding:0;
+}
+.icon-btn:hover{border-color:rgba(56,189,248,.5);background:var(--card2)}
+.icon-btn.active{border-color:rgba(56,189,248,.6);background:rgba(56,189,248,.16);color:#7dd3fc}
+
+.info-bar{
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:9px 14px;margin-bottom:14px;font-size:.78rem;color:var(--mut);
+  display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.info-bar b{color:var(--txt)}
+
+.card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:16px;margin-bottom:14px;box-shadow:0 10px 25px rgba(0,0,0,.25);
+}
+.card-title{
+  font-size:.82rem;text-transform:uppercase;letter-spacing:.7px;color:var(--mut);
+  margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;
+}
+
+.cfg-panel{display:none}
+.cfg-panel.open{display:block}
+.cfg-grid{display:flex;flex-direction:column;gap:10px}
+.cfg-row-2{display:flex;gap:8px}
+.cfg-row-2 > div{flex:1;min-width:0}
+.cfg-divider{height:1px;background:var(--border);margin:14px 0 10px}
+.cfg-sub{font-size:.78rem;font-weight:700;color:#e2e8f0;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.wifi-meta{font-size:.76rem;color:var(--mut);margin-top:8px;line-height:1.4}
+
+.km-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.km-big{font-size:1.5rem;font-weight:700}
+.km-sub{font-size:.85rem;color:var(--mut)}
+.prog-bg{width:100%;height:10px;border-radius:999px;background:var(--card2);overflow:hidden}
+.prog-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--acc),var(--ok));transition:width .35s ease,background .35s ease}
+.prog-fill.due{background:linear-gradient(90deg,var(--warn),var(--err))}
+.alert-box{
+  margin-top:10px;padding:10px 12px;border-radius:10px;font-size:.85rem;
+  background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);color:#fecaca;display:none;
+}
+.field-grid{display:flex;gap:8px;margin-top:10px}
+.field-col{flex:1;min-width:0}
+.field-lbl{display:block;font-size:.74rem;color:var(--mut);margin-bottom:4px}
+
+.row-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:11px 0;border-bottom:1px solid var(--border);
+}
+.row-item:last-child{border-bottom:none;padding-bottom:0}
+.row-item:first-of-type{padding-top:0}
+.item-lbl{font-weight:600;font-size:.95rem}
+.item-desc{font-size:.78rem;color:var(--mut);margin-top:2px}
+
+.switch{position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{
+  position:absolute;inset:0;cursor:pointer;background:#334155;
+  transition:.25s;border-radius:999px;border:1px solid rgba(255,255,255,.1);
+}
+.slider:before{
+  position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;
+  background:#fff;transition:.25s;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.35);
+}
+input:checked + .slider{background:var(--acc)}
+input:checked + .slider.engine-sl{background:var(--ok)}
+input:checked + .slider:before{transform:translateX(24px)}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.inp{
+  width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card2);color:var(--txt);font-size:15px;outline:none;
+}
+.inp:focus{border-color:rgba(56,189,248,.55)}
+.btn{
+  flex:1;min-width:110px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--card2);color:var(--txt);font-weight:600;font-size:.85rem;cursor:pointer;transition:.15s;
+}
+.btn:hover{border-color:rgba(56,189,248,.5);background:#223047}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.primary{background:rgba(56,189,248,.18);border-color:rgba(56,189,248,.45);color:#e0f2fe}
+.btn.danger{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.35);color:#fca5a5}
+.btn.danger-solid{background:#dc2626;border-color:#ef4444;color:#fff}
+.btn.active-prog{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.5);color:#fcd34d}
+
+.tag-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.tag-chip{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 12px;border-radius:10px;background:var(--card2);
+  border:1px solid var(--border);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88rem;
+}
+.tag-del{
+  padding:5px 10px;border-radius:8px;border:1px solid rgba(239,68,68,.35);
+  background:rgba(239,68,68,.14);color:#fca5a5;font-size:.76rem;font-weight:600;cursor:pointer;
+}
+.last-uid-box{
+  margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(56,189,248,.09);
+  border:1px solid rgba(56,189,248,.25);font-size:.8rem;color:#bae6fd;
+  display:none;justify-content:space-between;align-items:center;gap:8px;
+}
+
+.disco-trigger{
+  flex:1;min-width:165px;padding:10px 12px;border-radius:10px;
+  border:1px solid rgba(148,163,184,.22);background:#090d14;color:#f8fafc;
+  font-size:.88rem;font-weight:600;cursor:pointer;display:flex;
+  justify-content:space-between;align-items:center;gap:8px;transition:.15s;
+}
+.disco-backdrop{
+  position:fixed;inset:0;z-index:997;display:none;background:rgba(2,6,23,.72);
+  backdrop-filter:blur(6px);opacity:0;transition:opacity .2s ease;overscroll-behavior:none;touch-action:none;
+}
+.disco-backdrop.show{display:block;opacity:1}
+.disco-menu{
+  position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);z-index:998;
+  width:100%;max-width:540px;max-height:72vh;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  background:#090d14;border:1px solid rgba(255,255,255,.14);
+  border-radius:20px 20px 0 0;padding:16px;box-shadow:0 -18px 50px rgba(0,0,0,.75);transition:transform .22s ease;
+}
+.disco-backdrop.show .disco-menu{transform:translate(-50%,0)}
+.disco-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1);
+}
+.disco-title{font-size:.95rem;font-weight:700;color:#f8fafc}
+.disco-opt{
+  width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.08);background:#101724;color:#e2e8f0;
+  font-size:.86rem;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+}
+.disco-opt.active{background:#13263f;border-color:#38bdf8;color:#7dd3fc}
+
+.modal-backdrop{
+  position:fixed;inset:0;z-index:999;display:none;align-items:center;justify-content:center;
+  padding:20px;background:rgba(2,6,23,.72);backdrop-filter:blur(8px);opacity:0;transition:opacity .2s ease;
+}
+.modal-backdrop.show{display:flex;opacity:1}
+.modal-card{
+  width:100%;max-width:380px;background:linear-gradient(180deg,#182234 0%,#111827 100%);
+  border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);transform:translateY(10px) scale(.98);transition:transform .22s ease;
+}
+.modal-backdrop.show .modal-card{transform:translateY(0) scale(1)}
+.modal-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;font-weight:700;margin-bottom:12px}
+.modal-icon.warn-ic{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.35);color:#f87171}
+.modal-icon.info-ic{background:rgba(56,189,248,.16);border:1px solid rgba(56,189,248,.35);color:#38bdf8}
+.modal-title{font-size:1.05rem;font-weight:700;margin:0 0 6px}
+.modal-desc{font-size:.88rem;line-height:1.45;color:var(--mut);margin:0 0 18px}
+.modal-actions{display:flex;gap:10px}
+.modal-actions .btn{flex:1;margin:0;padding:11px 14px}
+
+.toast-box{
+  position:fixed;left:50%;bottom:20px;transform:translate(-50%,16px);z-index:1000;
+  max-width:90vw;padding:11px 16px;border-radius:12px;background:rgba(20,29,45,.95);
+  border:1px solid rgba(56,189,248,.35);color:#f1f5f9;font-size:.85rem;font-weight:600;
+  box-shadow:0 14px 35px rgba(0,0,0,.45);backdrop-filter:blur(8px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;text-align:center;
+}
+.toast-box.show{opacity:1;transform:translate(-50%,0)}
+.toast-box.err{border-color:rgba(239,68,68,.5);color:#fecaca}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>Honda Vario 160</h1>
+    <div class="badges">
+      <span id="modeBadge" class="pill-badge off">MODE: AUTO</span>
+      <span id="mqttBadge" class="pill-badge off">MQTT TERPUTUS</span>
+      <span id="espBadge" class="pill-badge off">ESP32 OFFLINE</span>
+      <button type="button" class="icon-btn" id="btnToggleCfg" title="Pengaturan Lokal &amp; Broker MQTT" onclick="toggleConfigPanel()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Info Koneksi Otomatis -->
+  <div class="info-bar">
+    <span>Jalur Aktif: <b id="activeRouteText">Mengecek Lokal...</b></span>
+    <span id="routeDetailText">Prioritas Lokal &bull; Auto IoT</span>
+  </div>
+
+  <!-- Pengaturan Lokal & Broker MQTT -->
+  <div class="card cfg-panel" id="cfgCard">
+    <div class="card-title">
+      <span>Pengaturan Lokal &amp; Broker MQTT</span>
+      <span style="font-size:.7rem;text-transform:none;color:var(--acc)">Otomatis</span>
+    </div>
+    <div class="cfg-grid">
+      <div>
+        <label class="field-lbl" for="cfgLocalUrl">URL Lokal ESP32</label>
+        <input type="text" class="inp" id="cfgLocalUrl" placeholder="http://192.168.4.1">
+      </div>
+      <div>
+        <label class="field-lbl" for="cfgUrl">Broker WebSocket URL</label>
+        <input type="text" class="inp" id="cfgUrl" placeholder="wss://broker.emqx.io:8084/mqtt">
+      </div>
+      <div>
+        <label class="field-lbl" for="cfgTopic">Base Topic</label>
+        <input type="text" class="inp" id="cfgTopic" placeholder="vario160/ctrl">
+      </div>
+      <div class="cfg-row-2">
+        <div>
+          <label class="field-lbl" for="cfgUser">Username (Opsional)</label>
+          <input type="text" class="inp" id="cfgUser" placeholder="Kosongkan jika publik">
+        </div>
+        <div>
+          <label class="field-lbl" for="cfgPass">Password (Opsional)</label>
+          <input type="password" class="inp" id="cfgPass" placeholder="••••••••">
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn primary" onclick="saveAndConnectMqtt()">Simpan &amp; Hubungkan</button>
+      <button type="button" class="btn" style="flex:0;min-width:95px" onclick="resetDefaultConfig()">Default</button>
+    </div>
+
+    <!-- Pengaturan Wi-Fi STA (Scan & Pilih SSID) -->
+    <div class="cfg-divider"></div>
+    <div class="cfg-sub">
+      <span>Wi-Fi STA ESP32</span>
+      <span id="staBadgeText" style="font-size:.72rem;color:var(--mut);font-weight:600">Belum terhubung</span>
+    </div>
+    <div class="cfg-grid">
+      <div>
+        <label class="field-lbl" for="wifiScanSelect">Pilih SSID Hasil Scan</label>
+        <select class="inp" id="wifiScanSelect" onchange="onSelectScannedWifi(this.value)">
+          <option value="">-- Tekan Scan Wi-Fi untuk mencari SSID --</option>
+        </select>
+      </div>
+      <div class="cfg-row-2">
+        <div>
+          <label class="field-lbl" for="staSsidInput">SSID Wi-Fi</label>
+          <input type="text" class="inp" id="staSsidInput" value="S23 FE" placeholder="S23 FE">
+        </div>
+        <div>
+          <label class="field-lbl" for="staPassInput">Password Wi-Fi</label>
+          <input type="text" class="inp" id="staPassInput" value="11111111" placeholder="11111111">
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn" id="btnScanWifi" onclick="scanWifiSta()">Scan Wi-Fi</button>
+      <button type="button" class="btn primary" id="btnConnectWifi" onclick="connectWifiSta()">Hubungkan Wi-Fi</button>
+    </div>
+    <div class="wifi-meta" id="wifiStaInfo">STA: S23 FE • Menunggu status ESP32</div>
+  </div>
+
+  <!-- CARD 1: ODOMETER & PENGINGAT OLI -->
+  <div class="card">
+    <div class="card-title">
+      <span>Odometer &amp; Pengingat Oli</span>
+      <span id="oilTopBadge" class="pill-badge warn" style="display:none">GANTI OLI</span>
+    </div>
+    <div class="km-row">
+      <span class="km-big" id="oilKmText">0.0 km</span>
+      <span class="km-sub" id="oilTargetText">Target: 2000 km</span>
+    </div>
+    <div class="prog-bg"><div class="prog-fill" id="oilBar"></div></div>
+    <div class="km-row" style="margin-top:8px;margin-bottom:0">
+      <span class="km-sub" id="totalKmText">Total jarak: 0.0 km</span>
+      <span class="km-sub" id="pulseCalInfo">Pulsa/KM: 2500.0</span>
+    </div>
+    <div class="alert-box" id="oilAlert">Peringatan: Jarak oli telah mencapai batas ganti oli! Tekan tombol fisik untuk membungkam beep.</div>
+
+    <div class="field-grid">
+      <div class="field-col">
+        <label class="field-lbl" for="oilTargetInput">Target Oli (KM)</label>
+        <input type="number" class="inp" id="oilTargetInput" min="100" max="50000" step="50" value="2000">
+      </div>
+      <div class="field-col">
+        <label class="field-lbl" for="pulsesPerKmInput">Kalibrasi Pulsa/KM</label>
+        <input type="number" class="inp" id="pulsesPerKmInput" min="10" max="200000" step="1" value="2500">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn primary" onclick="saveOilAndPulse()">Simpan</button>
+      <button type="button" class="btn danger" onclick="openConfirmModal('oil')">Reset Oli</button>
+    </div>
+  </div>
+
+  <!-- CARD 2: KONTROL MESIN & LAMPU -->
+  <div class="card">
+    <div class="card-title">Kontrol Mesin &amp; Lampu</div>
+    <div class="row-item">
+      <div><div class="item-lbl">Mesin</div><div class="item-desc">Kontrol Mesin</div></div>
+      <label class="switch"><input type="checkbox" id="swEngine" onchange="setEngine(this.checked)"><span class="slider engine-sl"></span></label>
+    </div>
+    <div class="row-item">
+      <div><div class="item-lbl">Hazard</div><div class="item-desc">Kontrol Lampu Segitiga</div></div>
+      <label class="switch"><input type="checkbox" id="swR1" onchange="setRelay(1,this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="row-item">
+      <div><div class="item-lbl">Lampu Utama</div><div class="item-desc">Kontrol Lampu Utama</div></div>
+      <label class="switch"><input type="checkbox" id="swR2" onchange="setRelay(2,this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="row-item">
+      <div><div class="item-lbl">Lampu Kabut</div><div class="item-desc">Kontrol Lampu Kabut</div></div>
+      <label class="switch"><input type="checkbox" id="swR3" onchange="setRelay(3,this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn" onclick="toggleAllLamps()">Toggle Hazard Lampu Utama/Kabut</button>
+    </div>
+  </div>
+
+  <!-- CARD 3: MODE DISKO (1-10) -->
+  <div class="card">
+    <div class="card-title">Mode Disko (1-10)</div>
+    <div class="item-desc" id="discoDesc" style="margin-bottom:10px">Status: Mati (0)</div>
+    <div class="btn-row" style="margin-top:0;align-items:center">
+      <button type="button" class="disco-trigger" id="discoTriggerBtn" onclick="openDiscoPopup()">
+        <span id="discoTriggerLabel">0 - Mati</span>
+        <span>&#9662;</span>
+      </button>
+      <button type="button" class="btn" style="flex:0;min-width:105px" onclick="nextDiscoMode()">Next Mode</button>
+      <button type="button" class="btn danger" style="flex:0;min-width:100px" onclick="setDisco(0)">Matikan</button>
+    </div>
+  </div>
+
+  <!-- CARD 4: RFID, TOUCH & NOTIFIKASI -->
+  <div class="card">
+    <div class="card-title">RFID, Touch &amp; Notifikasi</div>
+    <div class="row-item">
+      <div><div class="item-lbl">RFID Sensor</div><div class="item-desc" id="rfidCardInfo">Kartu terdaftar: 0 / 20</div></div>
+      <label class="switch"><input type="checkbox" id="swRfid" checked onchange="setRfidEnabled(this.checked)"><span class="slider"></span></label>
+    </div>
+
+    <div class="btn-row" style="align-items:center">
+      <input type="text" class="inp" id="rfidUidInput" maxlength="20" placeholder="UID Kartu (mis. A1B2C3D4)" style="text-transform:uppercase;flex:1">
+      <button type="button" class="btn" style="flex:0;min-width:105px" onclick="addRfidManual()">Tambah</button>
+    </div>
+
+    <div class="last-uid-box" id="lastUidBox">
+      <span>Terakhir terbaca: <b id="lastUidText">-</b></span>
+      <button type="button" class="tag-del" style="border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.18);color:#e0f2fe" onclick="useLastUid()">Gunakan</button>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn" id="btnRfidProg" onclick="toggleRfidProg()">Tap Daftar / Hapus Kartu</button>
+      <button type="button" class="btn danger" onclick="openConfirmModal('rfid')">Reset Semua Kartu</button>
+    </div>
+
+    <div class="tag-list" id="tagListBox">
+      <div class="item-desc">Belum ada kartu RFID terdaftar.</div>
+    </div>
+
+    <div class="row-item" style="margin-top:12px">
+      <div><div class="item-lbl">Touch Sensor</div><div class="item-desc">Sentuh untuk toggle mesin</div></div>
+      <label class="switch"><input type="checkbox" id="swTouch" checked onchange="setTouchEnabled(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="row-item">
+      <div><div class="item-lbl">Mode Beep</div><div class="item-desc" id="beepDesc">Mode 1 dari 5</div></div>
+      <button type="button" class="btn" style="flex:0;min-width:110px" onclick="nextBeepMode()">Ganti Mode</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popup Pilihan Mode Disko -->
+<div class="disco-backdrop" id="discoBackdrop" onclick="discoBackdropClose(event)">
+  <div class="disco-menu" id="discoMenu" onclick="event.stopPropagation()">
+    <div class="disco-head">
+      <span class="disco-title">Pilih Mode Disko</span>
+      <button type="button" class="tag-del" onclick="closeDiscoPopup()">Tutup</button>
+    </div>
+    <div id="discoOptionsList"></div>
+  </div>
+</div>
+
+<!-- Modal Konfirmasi & Info -->
+<div class="modal-backdrop" id="popupModal" onclick="backdropClose(event)">
+  <div class="modal-card">
+    <div class="modal-icon warn-ic" id="modalIcon">!</div>
+    <h2 class="modal-title" id="modalTitle">Konfirmasi</h2>
+    <p class="modal-desc" id="modalDesc"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="modalCancelBtn" onclick="closePopupModal()">Batal</button>
+      <button type="button" class="btn danger-solid" id="modalConfirmBtn" onclick="executeConfirm()">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-box" id="toastBox"></div>
+
+<script>
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, {passive:false});
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e){
+  const now = Date.now();
+  if(now - lastTouchEnd <= 300){ e.preventDefault(); }
+  lastTouchEnd = now;
+}, {passive:false});
+
+const STORAGE_KEY = 'vario160_mqtt_cfg_v1';
+const DEFAULT_CFG = {
+  localUrl: 'http://192.168.4.1',
+  url: 'wss://broker.emqx.io:8084/mqtt',
+  baseTopic: 'vario160/ctrl',
+  username: '',
+  password: ''
+};
+
+const DISCO_MODES = [
+  {v:0,  t:'0 - Mati'},
+  {v:1,  t:'1 - R3 Cepat (100ms)'},
+  {v:2,  t:'2 - R3 Lambat (500ms)'},
+  {v:3,  t:'3 - R3 Strobe 2x'},
+  {v:4,  t:'4 - R3 Strobe 3x'},
+  {v:5,  t:'5 - R3 Acak'},
+  {v:6,  t:'6 - R2 & R3 Flip Cepat'},
+  {v:7,  t:'7 - R2 & R3 Flip Lambat'},
+  {v:8,  t:'8 - R2 & R3 Strobe 2x'},
+  {v:9,  t:'9 - R2 & R3 Strobe 3x'},
+  {v:10, t:'10 - R2 & R3 Acak'}
+];
+const LAMP_LABELS = { 1: 'Hazard', 2: 'Lampu Utama', 3: 'Lampu Kabut' };
+
+let mqttCfg = loadConfig();
+let client = null;
+let isMqttConnected = false;
+let isLocalReachable = false;
+let isEspMqttOnline = false;
+let currentDiscoMode = 0;
+let pendingAction = null;
+let pendingUid = '';
+let latestScannedUid = '';
+let toastTimer = null;
+let staFormEdited = false;
+
+function loadConfig(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return {...DEFAULT_CFG};
+    const parsed = JSON.parse(raw);
+    return {
+      localUrl: (parsed.localUrl || DEFAULT_CFG.localUrl).trim().replace(/\/+$/, ''),
+      url: (parsed.url || DEFAULT_CFG.url).trim(),
+      baseTopic: (parsed.baseTopic || DEFAULT_CFG.baseTopic).trim().replace(/\/+$/, ''),
+      username: parsed.username || '',
+      password: parsed.password || ''
+    };
+  }catch(e){
+    return {...DEFAULT_CFG};
+  }
+}
+
+function populateConfigForm(){
+  document.getElementById('cfgLocalUrl').value = mqttCfg.localUrl;
+  document.getElementById('cfgUrl').value = mqttCfg.url;
+  document.getElementById('cfgTopic').value = mqttCfg.baseTopic;
+  document.getElementById('cfgUser').value = mqttCfg.username;
+  document.getElementById('cfgPass').value = mqttCfg.password;
+}
+
+function toggleConfigPanel(){
+  const card = document.getElementById('cfgCard');
+  const btn = document.getElementById('btnToggleCfg');
+  const open = card.classList.toggle('open');
+  btn.classList.toggle('active', open);
+}
+
+function resetDefaultConfig(){
+  mqttCfg = {...DEFAULT_CFG};
+  populateConfigForm();
+  showToast('Pengaturan dikembalikan ke default', false);
+}
+
+function saveAndConnectMqtt(){
+  const localUrl = (document.getElementById('cfgLocalUrl').value || DEFAULT_CFG.localUrl).trim().replace(/\/+$/, '');
+  const url = (document.getElementById('cfgUrl').value || '').trim();
+  const baseTopic = (document.getElementById('cfgTopic').value || '').trim().replace(/\/+$/, '');
+  const username = (document.getElementById('cfgUser').value || '').trim();
+  const password = document.getElementById('cfgPass').value || '';
+
+  if(!url.startsWith('ws://') && !url.startsWith('wss://')){
+    openInfoPopup('URL Broker Tidak Valid', 'Broker WebSocket URL harus diawali dengan <b>wss://</b> atau <b>ws://</b>.');
+    return;
+  }
+  if(!baseTopic){
+    openInfoPopup('Base Topic Kosong', 'Masukkan Base Topic MQTT, misalnya <b>vario160/ctrl</b>.');
+    return;
+  }
+
+  mqttCfg = { localUrl, url, baseTopic, username, password };
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(mqttCfg)); }catch(e){}
+
+  connectMqtt();
+  probeLocal();
+  document.getElementById('cfgCard').classList.remove('open');
+  document.getElementById('btnToggleCfg').classList.remove('active');
+}
+
+function onSelectScannedWifi(ssid){
+  if(!ssid) return;
+  document.getElementById('staSsidInput').value = ssid;
+  staFormEdited = true;
+}
+
+async function scanWifiSta(){
+  const btn = document.getElementById('btnScanWifi');
+  const sel = document.getElementById('wifiScanSelect');
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
+  try{
+    const res = await fetch(`${mqttCfg.localUrl}/api/wifi/scan`, {
+      signal: ctrl.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP');
+    const data = await res.json();
+    const list = Array.isArray(data.networks) ? data.networks : [];
+    const seen = new Set();
+    const unique = [];
+    list.sort((a, b) => Number(b.rssi ?? -999) - Number(a.rssi ?? -999)).forEach(net => {
+      const s = String(net.ssid || '').trim();
+      if(!s || seen.has(s)) return;
+      seen.add(s);
+      unique.push({ ssid: s, rssi: Number(net.rssi ?? 0) });
+    });
+
+    sel.innerHTML = `<option value="">-- Pilih SSID (${unique.length} ditemukan) --</option>` +
+      unique.map(n => `<option value="${n.ssid.replace(/"/g, '&quot;')}">${n.ssid} (${n.rssi} dBm)</option>`).join('');
+
+    showToast(`Ditemukan ${unique.length} jaringan Wi-Fi`, false);
+  } catch(e){
+    clearTimeout(timer);
+    showToast('Scan Wi-Fi gagal. Pastikan terhubung ke Wi-Fi Lokal ESP32.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan Wi-Fi';
+  }
+}
+
+async function connectWifiSta(){
+  const ssid = (document.getElementById('staSsidInput').value || '').trim();
+  const pass = document.getElementById('staPassInput').value || '';
+  if(!ssid){
+    openInfoPopup('SSID Kosong', 'Pilih SSID hasil scan atau ketik nama SSID Wi-Fi terlebih dahulu.');
+    return;
+  }
+
+  const btn = document.getElementById('btnConnectWifi');
+  btn.disabled = true;
+  btn.textContent = 'Menghubungkan...';
+
+  const ok = await sendLocalApi(`/api/wifi/connect?ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`);
+  staFormEdited = false;
+  btn.disabled = false;
+  btn.textContent = 'Hubungkan Wi-Fi';
+
+  if(ok){
+    showToast(`Menghubungkan STA ke ${ssid}`, false);
+  } else {
+    showToast('Gagal mengirim perintah Wi-Fi ke ESP32 lokal', true);
+  }
+}
+
+function updateConnectionBadges(){
+  const modeBadge = document.getElementById('modeBadge');
+  const mqttBadge = document.getElementById('mqttBadge');
+  const espBadge = document.getElementById('espBadge');
+  const activeRouteText = document.getElementById('activeRouteText');
+  const routeDetailText = document.getElementById('routeDetailText');
+
+  if(isLocalReachable){
+    modeBadge.textContent = 'MODE: LOKAL';
+    modeBadge.className = 'pill-badge';
+    mqttBadge.textContent = isMqttConnected ? 'MQTT STANDBY' : 'MQTT OFF';
+    mqttBadge.className = isMqttConnected ? 'pill-badge iot' : 'pill-badge off';
+    espBadge.textContent = 'ESP32 ONLINE';
+    espBadge.className = 'pill-badge';
+    activeRouteText.textContent = `Lokal (${mqttCfg.localUrl})`;
+    routeDetailText.textContent = 'Prioritas Lokal Aktif';
+    return;
+  }
+
+  modeBadge.textContent = 'MODE: IOT';
+  modeBadge.className = 'pill-badge iot';
+
+  if(isMqttConnected){
+    mqttBadge.textContent = 'MQTT TERHUBUNG';
+    mqttBadge.className = 'pill-badge';
+    activeRouteText.textContent = 'IoT (MQTT)';
+    if(isEspMqttOnline){
+      espBadge.textContent = 'ESP32 ONLINE';
+      espBadge.className = 'pill-badge';
+      routeDetailText.textContent = `Topik: ${mqttCfg.baseTopic}`;
+    } else {
+      espBadge.textContent = 'ESP32 OFFLINE';
+      espBadge.className = 'pill-badge off';
+      routeDetailText.textContent = 'Menunggu data ESP32';
+    }
+  } else {
+    mqttBadge.textContent = 'MQTT TERPUTUS';
+    mqttBadge.className = 'pill-badge off';
+    espBadge.textContent = 'ESP32 OFFLINE';
+    espBadge.className = 'pill-badge off';
+    activeRouteText.textContent = 'Tidak Terhubung';
+    routeDetailText.textContent = 'Lokal tidak ada • Reconnect MQTT';
+  }
+}
+
+async function probeLocal(){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1100);
+  try{
+    const res = await fetch(`${mqttCfg.localUrl}/api/status`, {
+      signal: ctrl.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP');
+    const data = await res.json();
+    isLocalReachable = true;
+    updateConnectionBadges();
+    applyTelemetry(data, true);
+  } catch(e){
+    clearTimeout(timer);
+    if(isLocalReachable){
+      isLocalReachable = false;
+      updateConnectionBadges();
+    } else {
+      updateConnectionBadges();
+    }
+  }
+}
+
+async function sendLocalApi(path){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1400);
+  try{
+    const res = await fetch(`${mqttCfg.localUrl}${path}`, {
+      signal: ctrl.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP');
+    const data = await res.json();
+    isLocalReachable = true;
+    updateConnectionBadges();
+    applyTelemetry(data, true);
+    return true;
+  } catch(e){
+    clearTimeout(timer);
+    isLocalReachable = false;
+    updateConnectionBadges();
+    return false;
+  }
+}
+
+function connectMqtt(){
+  if(typeof mqtt === 'undefined'){
+    isMqttConnected = false;
+    isEspMqttOnline = false;
+    updateConnectionBadges();
+    showToast('Library MQTT.js gagal dimuat. Periksa koneksi internet.', true);
+    return;
+  }
+
+  if(client){
+    try{ client.end(true); }catch(e){}
+    client = null;
+  }
+
+  isMqttConnected = false;
+  isEspMqttOnline = false;
+  updateConnectionBadges();
+
+  const clientId = 'vario160-web-' + Math.random().toString(16).slice(2, 8);
+  const opts = {
+    clientId,
+    clean: true,
+    connectTimeout: 8000,
+    reconnectPeriod: 4000
+  };
+  if(mqttCfg.username){
+    opts.username = mqttCfg.username;
+    opts.password = mqttCfg.password;
+  }
+
+  try{
+    client = mqtt.connect(mqttCfg.url, opts);
+  }catch(err){
+    isMqttConnected = false;
+    isEspMqttOnline = false;
+    updateConnectionBadges();
+    showToast('Gagal menginisialisasi koneksi MQTT', true);
+    return;
+  }
+
+  const topicStatus = `${mqttCfg.baseTopic}/status`;
+  const topicOdo = `${mqttCfg.baseTopic}/odometer`;
+  const topicAvail = `${mqttCfg.baseTopic}/availability`;
+
+  client.on('connect', () => {
+    isMqttConnected = true;
+    updateConnectionBadges();
+    client.subscribe([topicStatus, topicOdo, topicAvail], { qos: 0 });
+    publishCmd('sync', '1', '');
+  });
+
+  client.on('reconnect', () => {
+    isMqttConnected = false;
+    updateConnectionBadges();
+  });
+
+  client.on('close', () => {
+    isMqttConnected = false;
+    isEspMqttOnline = false;
+    updateConnectionBadges();
+  });
+
+  client.on('error', () => {
+    isMqttConnected = false;
+    updateConnectionBadges();
+  });
+
+  client.on('message', (topic, message) => {
+    const payloadStr = message.toString().trim();
+    if(topic === topicAvail){
+      isEspMqttOnline = (payloadStr.toLowerCase() === 'online');
+      updateConnectionBadges();
+      return;
+    }
+    if(topic === topicStatus || topic === topicOdo){
+      try{
+        const data = JSON.parse(payloadStr);
+        isEspMqttOnline = true;
+        updateConnectionBadges();
+        if(isLocalReachable) return;
+        applyTelemetry(data, topic === topicStatus);
+      }catch(e){}
+    }
+  });
+}
+
+function publishCmd(subTopic, payload, toastMsg){
+  if(!client || !isMqttConnected){
+    showToast('Belum terhubung ke broker MQTT!', true);
+    return false;
+  }
+  const fullTopic = `${mqttCfg.baseTopic}/cmd/${subTopic}`;
+  client.publish(fullTopic, String(payload), { qos: 0, retain: false }, (err) => {
+    if(err) showToast('Gagal mengirim perintah MQTT', true);
+    else if(toastMsg) showToast(toastMsg, false);
+  });
+  return true;
+}
+
+async function dispatchControl(localPath, mqttSubTopic, mqttPayload, toastMsg){
+  if(isLocalReachable){
+    const ok = await sendLocalApi(localPath);
+    if(ok){
+      if(toastMsg) showToast(`${toastMsg} (Lokal)`, false);
+      return;
+    }
+  }
+  publishCmd(mqttSubTopic, mqttPayload, toastMsg ? `${toastMsg} (IoT)` : '');
+}
+
+function applyTelemetry(d, isFullStatus){
+  if(isFullStatus){
+    if(typeof d.engine !== 'undefined') document.getElementById('swEngine').checked = !!d.engine;
+    if(typeof d.r1 !== 'undefined') document.getElementById('swR1').checked = !!d.r1;
+    if(typeof d.r2 !== 'undefined') document.getElementById('swR2').checked = !!d.r2;
+    if(typeof d.r3 !== 'undefined') document.getElementById('swR3').checked = !!d.r3;
+    if(typeof d.rfidEnabled !== 'undefined') document.getElementById('swRfid').checked = !!d.rfidEnabled;
+    if(typeof d.touchEnabled !== 'undefined') document.getElementById('swTouch').checked = !!d.touchEnabled;
+
+    if(typeof d.discoMode !== 'undefined'){
+      const dm = Number(d.discoMode || 0);
+      currentDiscoMode = dm;
+      const found = DISCO_MODES.find(x => x.v === dm) || DISCO_MODES[0];
+      document.getElementById('discoTriggerLabel').textContent = found.t;
+      document.getElementById('discoDesc').textContent = dm === 0
+        ? 'Status: Mati (0)'
+        : `Status: Aktif Mode ${dm} (${dm <= 5 ? 'Khusus Relay 3' : 'Relay 2 & 3'})`;
+    }
+
+    if(typeof d.rfidProgMode !== 'undefined'){
+      const prog = Number(d.rfidProgMode || 0) === 1;
+      const progBtn = document.getElementById('btnRfidProg');
+      progBtn.classList.toggle('active-prog', prog);
+      progBtn.textContent = prog ? 'Menunggu Tap Kartu... (Klik Batal)' : 'Tap Daftar / Hapus Kartu';
+    }
+
+    if(Array.isArray(d.tags)){
+      const prog = Number(d.rfidProgMode || 0) === 1;
+      document.getElementById('rfidCardInfo').textContent = `Kartu terdaftar: ${d.tags.length} / ${Number(d.maxTags || 20)}${prog ? ' • TEMPEL KARTU' : ''}`;
+      const listBox = document.getElementById('tagListBox');
+      listBox.innerHTML = d.tags.length === 0
+        ? '<div class="item-desc">Belum ada kartu RFID terdaftar.</div>'
+        : d.tags.map((uid, idx) => `<div class="tag-chip"><span>#${idx + 1} &bull; ${uid}</span><button type="button" class="tag-del" onclick="openConfirmModal('rfid_one','${uid}')">Hapus</button></div>`).join('');
+    } else if(typeof d.tagCount !== 'undefined'){
+      document.getElementById('rfidCardInfo').textContent = `Kartu terdaftar: ${Number(d.tagCount || 0)} / ${Number(d.maxTags || 20)}`;
+    }
+
+    if(typeof d.lastUid !== 'undefined'){
+      latestScannedUid = d.lastUid || '';
+      const lastBox = document.getElementById('lastUidBox');
+      if(latestScannedUid){
+        lastBox.style.display = 'flex';
+        document.getElementById('lastUidText').textContent = latestScannedUid;
+      } else {
+        lastBox.style.display = 'none';
+      }
+    }
+
+    if(typeof d.beepMode !== 'undefined'){
+      document.getElementById('beepDesc').textContent = d.beepMode === 6 ? 'Mode Diam (6)' : `Mode ${d.beepMode} dari 5`;
+    }
+
+    if(typeof d.staSsid !== 'undefined' && d.staSsid && !staFormEdited){
+      const ssidInp = document.getElementById('staSsidInput');
+      if(ssidInp && document.activeElement !== ssidInp){
+        ssidInp.value = d.staSsid;
+      }
+    }
+
+    if(typeof d.wifiSta !== 'undefined' || typeof d.staSsid !== 'undefined'){
+      const ssidLbl = d.staSsid || document.getElementById('staSsidInput').value || 'S23 FE';
+      const connected = Boolean(d.wifiSta);
+      const ipStr = d.staIp && d.staIp !== '0.0.0.0' ? ` • IP: ${d.staIp}` : '';
+      const rssiStr = connected && typeof d.rssi !== 'undefined' ? ` • ${d.rssi} dBm` : '';
+      document.getElementById('staBadgeText').textContent = connected ? 'Terhubung' : 'Belum terhubung';
+      document.getElementById('staBadgeText').style.color = connected ? 'var(--ok)' : 'var(--mut)';
+      document.getElementById('wifiStaInfo').textContent = `STA: ${ssidLbl} • ${connected ? 'Terhubung' : 'Belum terhubung'}${ipStr}${rssiStr}`;
+    }
+  }
+
+  if(typeof d.oilKm !== 'undefined' || typeof d.oilIntervalKm !== 'undefined' || typeof d.totalKm !== 'undefined'){
+    const oilKm = Number(d.oilKm ?? 0);
+    const target = Number(d.oilIntervalKm ?? 2000);
+    const totalKm = Number(d.totalKm ?? 0);
+    const oilDue = Boolean(d.oilDue);
+    const pct = target > 0 ? Math.max(0, Math.min(100, (oilKm / target) * 100)) : 0;
+
+    document.getElementById('oilKmText').textContent = `${oilKm.toFixed(1)} km`;
+    document.getElementById('oilTargetText').textContent = `Target: ${target} km`;
+    document.getElementById('totalKmText').textContent = `Total jarak: ${totalKm.toFixed(1)} km`;
+
+    const inp = document.getElementById('oilTargetInput');
+    if(inp && document.activeElement !== inp && target > 0) inp.value = target;
+
+    const bar = document.getElementById('oilBar');
+    bar.style.width = `${pct}%`;
+    bar.classList.toggle('due', oilDue);
+
+    const alertBox = document.getElementById('oilAlert');
+    alertBox.style.display = oilDue ? 'block' : 'none';
+    if(oilDue){
+      alertBox.textContent = d.oilAlarmMuted
+        ? 'Peringatan: Jarak oli telah mencapai batas ganti oli! (Beep dibungkam)'
+        : 'Peringatan: Jarak oli telah mencapai batas ganti oli! Tekan tombol fisik untuk membungkam beep.';
+    }
+
+    const oilTopBadge = document.getElementById('oilTopBadge');
+    oilTopBadge.style.display = oilDue ? 'inline-block' : 'none';
+  }
+
+  if(typeof d.pulsesPerKm !== 'undefined'){
+    const ppk = Number(d.pulsesPerKm || 2500);
+    document.getElementById('pulseCalInfo').textContent = `Pulsa/KM: ${ppk.toFixed(1)}`;
+    const ppkInp = document.getElementById('pulsesPerKmInput');
+    if(ppkInp && document.activeElement !== ppkInp) ppkInp.value = ppk;
+  }
+}
+
+document.getElementById('staSsidInput').addEventListener('input', () => { staFormEdited = true; });
+document.getElementById('staPassInput').addEventListener('input', () => { staFormEdited = true; });
+
+function setEngine(swOn){
+  dispatchControl(`/api/engine/set?state=${swOn ? 1 : 0}`, 'engine', swOn ? '1' : '0', `Perintah Mesin ${swOn ? 'ON' : 'OFF'} dikirim`);
+}
+
+function setRelay(ch, state){
+  const label = LAMP_LABELS[ch] || `Relay ${ch}`;
+  dispatchControl(
+    `/api/relay/set?ch=${Number(ch)}&state=${state ? 1 : 0}`,
+    'relay',
+    JSON.stringify({ ch: Number(ch), state: Boolean(state) }),
+    `${label} ${state ? 'dihidupkan' : 'dimatikan'}`
+  );
+}
+
+function toggleAllLamps(){
+  dispatchControl('/api/relay/123', 'relay', '123', 'Toggle Hazard, Lampu Utama & Kabut dikirim');
+}
+
+function setDisco(mode){
+  const m = Number(mode);
+  dispatchControl(`/api/disco/set?mode=${m}`, 'disco', String(m), m === 0 ? 'Mode disko dimatikan' : `Mode disko ${m} dikirim`);
+}
+
+function nextDiscoMode(){
+  dispatchControl('/api/disco/next', 'disco', 'next', 'Perintah Next Mode Disko dikirim');
+}
+
+function setRfidEnabled(enabled){
+  dispatchControl('/api/rfid/toggle', 'rfid/enable', enabled ? '1' : '0', `RFID Sensor ${enabled ? 'diaktifkan' : 'dimatikan'}`);
+}
+
+function toggleRfidProg(){
+  dispatchControl('/api/rfid/prog', 'rfid/prog', 'toggle', 'Mode program RFID diubah');
+}
+
+function setTouchEnabled(enabled){
+  dispatchControl('/api/touch/toggle', 'touch/enable', enabled ? '1' : '0', `Touch Sensor ${enabled ? 'diaktifkan' : 'dimatikan'}`);
+}
+
+function nextBeepMode(){
+  dispatchControl('/api/beep/next', 'beep/next', '1', 'Mode beep diganti');
+}
+
+function useLastUid(){
+  if(latestScannedUid){
+    document.getElementById('rfidUidInput').value = latestScannedUid;
+    showToast(`UID ${latestScannedUid} disalin`, false);
+  }
+}
+
+function addRfidManual(){
+  const inp = document.getElementById('rfidUidInput');
+  const uid = (inp.value || '').trim().replace(/[\s:-]/g, '').toUpperCase();
+  if(uid.length < 4){
+    openInfoPopup('UID Tidak Valid', 'Masukkan UID minimal <b>4 karakter</b>.');
+    return;
+  }
+  dispatchControl(`/api/rfid/add?uid=${encodeURIComponent(uid)}`, 'rfid/add', uid, `Menambahkan kartu ${uid}`);
+  inp.value = '';
+}
+
+function saveOilAndPulse(){
+  const kmVal = Number(document.getElementById('oilTargetInput').value);
+  const ppkVal = Number(document.getElementById('pulsesPerKmInput').value);
+  if(isNaN(kmVal) || kmVal < 100 || kmVal > 50000){
+    openInfoPopup('Target KM Tidak Valid', 'Masukkan antara <b>100</b> - <b>50000 km</b>.');
+    return;
+  }
+  if(isNaN(ppkVal) || ppkVal < 10 || ppkVal > 200000){
+    openInfoPopup('Kalibrasi Pulsa Tidak Valid', 'Masukkan antara <b>10</b> - <b>200000</b>.');
+    return;
+  }
+  const kmRound = Math.round(kmVal);
+  dispatchControl(`/api/oil/interval?km=${kmRound}`, 'oil', String(kmRound), '');
+  dispatchControl(`/api/speed/cal?ppk=${ppkVal}`, 'speed', String(ppkVal), `Tersimpan: ${kmRound} km • ${ppkVal} pulsa/km`);
+}
+
+function renderDiscoOptions(){
+  const box = document.getElementById('discoOptionsList');
+  box.innerHTML = DISCO_MODES.map(m =>
+    `<button type="button" class="disco-opt ${m.v === currentDiscoMode ? 'active' : ''}" onclick="selectDiscoFromPopup(${m.v})"><span>${m.t}</span><span>${m.v === currentDiscoMode ? 'Aktif' : ''}</span></button>`
+  ).join('');
+}
+function openDiscoPopup(){
+  renderDiscoOptions();
+  document.body.classList.add('no-scroll');
+  const backdrop = document.getElementById('discoBackdrop');
+  const menu = document.getElementById('discoMenu');
+  backdrop.classList.add('show');
+  if(menu) menu.scrollTop = 0;
+}
+function closeDiscoPopup(){ document.getElementById('discoBackdrop').classList.remove('show'); document.body.classList.remove('no-scroll'); }
+function discoBackdropClose(e){ if(e.target && e.target.id === 'discoBackdrop') closeDiscoPopup(); }
+function selectDiscoFromPopup(mode){ closeDiscoPopup(); setDisco(mode); }
+
+function openInfoPopup(title, desc){
+  pendingAction = null; pendingUid = '';
+  const ic = document.getElementById('modalIcon'); ic.textContent = 'i'; ic.className = 'modal-icon info-ic';
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalDesc').innerHTML = desc;
+  document.getElementById('modalCancelBtn').style.display = 'none';
+  const okBtn = document.getElementById('modalConfirmBtn'); okBtn.textContent = 'Mengerti'; okBtn.className = 'btn primary';
+  document.getElementById('popupModal').classList.add('show');
+}
+
+function openConfirmModal(type, uid){
+  pendingAction = type; pendingUid = uid || '';
+  const ic = document.getElementById('modalIcon'); ic.textContent = '!'; ic.className = 'modal-icon warn-ic';
+  document.getElementById('modalCancelBtn').style.display = '';
+  const titleEl = document.getElementById('modalTitle'), descEl = document.getElementById('modalDesc'), btnEl = document.getElementById('modalConfirmBtn');
+  btnEl.className = 'btn danger-solid';
+  if(type === 'oil'){
+    titleEl.textContent = 'Reset Kilometer Oli?';
+    descEl.innerHTML = 'Hitungan jarak pemakaian oli saat ini akan dikembalikan menjadi <b>0.0 km</b>. Total odometer motor tidak akan terhapus.';
+    btnEl.textContent = 'Ya, Reset Oli';
+  } else if(type === 'rfid'){
+    titleEl.textContent = 'Reset Semua Kartu RFID?';
+    descEl.innerHTML = 'Seluruh kartu RFID akan <b>dihapus permanen</b>.';
+    btnEl.textContent = 'Ya, Hapus Semua';
+  } else if(type === 'rfid_one'){
+    titleEl.textContent = 'Hapus Kartu RFID?';
+    descEl.innerHTML = `Kartu UID <b>${pendingUid}</b> akan dihapus.`;
+    btnEl.textContent = 'Ya, Hapus Kartu';
+  }
+  document.getElementById('popupModal').classList.add('show');
+}
+
+function closePopupModal(){ pendingAction = null; pendingUid = ''; document.getElementById('popupModal').classList.remove('show'); }
+function backdropClose(e){ if(e.target && e.target.id === 'popupModal') closePopupModal(); }
+
+function executeConfirm(){
+  const act = pendingAction, uid = pendingUid;
+  closePopupModal();
+  if(!act) return;
+  if(act === 'oil') dispatchControl('/api/oil/reset', 'oil', 'reset', 'Perintah reset kilometer oli dikirim');
+  else if(act === 'rfid') dispatchControl('/api/rfid/wipe', 'rfid/wipe', '1', 'Perintah hapus semua kartu dikirim');
+  else if(act === 'rfid_one' && uid) dispatchControl(`/api/rfid/remove?uid=${encodeURIComponent(uid)}`, 'rfid/remove', uid, `Menghapus kartu ${uid}`);
+}
+
+function showToast(msg, isErr){
+  const el = document.getElementById('toastBox');
+  el.textContent = msg;
+  el.classList.toggle('err', !!isErr);
+  el.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('show'); }, 2400);
+}
+
+populateConfigForm();
+updateConnectionBadges();
+connectMqtt();
+probeLocal();
+setInterval(probeLocal, 2500);
+</script>
+</body>
+</html>
