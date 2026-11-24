@@ -303,7 +303,7 @@ input:checked + .slider:before{transform:translateX(24px)}
     <div class="prog-bg"><div class="prog-fill" id="oilBar"></div></div>
     <div class="km-row" style="margin-top:8px;margin-bottom:0">
       <span class="km-sub" id="totalKmText">Total jarak: 0.0 km</span>
-      <span class="km-sub" id="pulseCalInfo">Pulsa/KM: 2500.0</span>
+      <span class="km-sub" id="pulseCalInfo">Hall Sensor KM: 2500.0</span>
     </div>
     <div class="alert-box" id="oilAlert">Peringatan: Jarak oli telah mencapai batas ganti oli! Tekan tombol fisik untuk membungkam beep.</div>
 
@@ -313,7 +313,7 @@ input:checked + .slider:before{transform:translateX(24px)}
         <input type="number" class="inp" id="oilTargetInput" min="100" max="50000" step="50" value="2000">
       </div>
       <div class="field-col">
-        <label class="field-lbl" for="pulsesPerKmInput">Kalibrasi Pulsa/KM</label>
+        <label class="field-lbl" for="pulsesPerKmInput">Kalibrasi Hall Sensor</label>
         <input type="number" class="inp" id="pulsesPerKmInput" min="10" max="200000" step="1" value="2500">
       </div>
     </div>
@@ -364,7 +364,7 @@ input:checked + .slider:before{transform:translateX(24px)}
 
   <!-- CARD 4: RFID, TOUCH & NOTIFIKASI -->
   <div class="card">
-    <div class="card-title">RFID, Touch &amp; Notifikasi</div>
+    <div class="card-title">RFID &amp; Touch  Sensor</div>
     <div class="row-item">
       <div><div class="item-lbl">RFID Sensor</div><div class="item-desc" id="rfidCardInfo">Kartu terdaftar: 0 / 20</div></div>
       <label class="switch"><input type="checkbox" id="swRfid" checked onchange="setRfidEnabled(this.checked)"><span class="slider"></span></label>
